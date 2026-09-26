@@ -1,8 +1,32 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "apps/compass-api/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/compass-api/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/compass-api",
+  "projects": {
+    "compass-api": {
+      "type": "application",
+      "root": "apps/compass-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/compass-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/compass-api/tsconfig.app.json"
+      }
+    },
+    "compass-batch": {
+      "type": "application",
+      "root": "apps/compass-batch",
+      "entryFile": "main",
+      "sourceRoot": "apps/compass-batch/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/compass-batch/tsconfig.app.json"
+      }
+    }
   }
 }
