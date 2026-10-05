@@ -1,24 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { CompassBatchModule } from './../src/compass-batch.module';
+import request from 'supertest';
+import { BatchModule } from './../src/batch.module';
 
-describe('CompassBatchController (e2e)', () => {
-  let app: INestApplication;
+describe('BatchController (e2e)', () => {
+	let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [CompassBatchModule],
-    }).compile();
+	beforeEach(async () => {
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [BatchModule],
+		}).compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-  });
+		app = moduleFixture.createNestApplication();
+		await app.init();
+	});
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
-  });
+	it('/ (GET)', () => {
+		return request(app.getHttpServer()).get('/').expect(200).expect('Compass Batch Server');
+	});
 });

@@ -1,0 +1,65 @@
+import { Controller, Get, Logger } from '@nestjs/common';
+import { Cron, Timeout } from '@nestjs/schedule';
+import { BatchService } from './batch.service';
+import { BATCH_ROLLBACK, BATCH_TOP_AGENTS, BATCH_TOP_PRODUCTS, BATCH_TOP_ROOM_TOURS } from './lib/config';
+
+/**
+ * Scheduling only, the work lives in BatchService. Jobs run hourly and never overlap:
+ * rollback (xx:00:00) → agents (xx:00:20) → products (xx:00:40) → room tours (xx:01:00)
+ */
+@Controller()
+export class BatchController {
+	private readonly logger: Logger = new Logger('BatchController');
+
+	constructor(private readonly batchService: BatchService) {}
+
+	@Timeout(1000)
+	handleTimeout() {
+		this.logger.debug('BATCH SERVER READY!');
+	}
+
+	@Cron('00 00 * * * *', { name: BATCH_ROLLBACK })
+	public async batchRollback() {
+		try {
+			await this.batchService.batchRollback();
+			this.logger.debug('EXECUTED!', BATCH_ROLLBACK);
+		} catch (err) {
+			this.logger.error(err, BATCH_ROLLBACK);
+		}
+	}
+
+	@Cron('20 00 * * * *', { name: BATCH_TOP_AGENTS })
+	public async batchTopAgents() {
+		try {
+			const updated = await this.batchService.batchTopAgents();
+			this.logger.debug(`EXECUTED! updated: ${updated}`, BATCH_TOP_AGENTS);
+		} catch (err) {
+			this.logger.error(err, BATCH_TOP_AGENTS);
+		}
+	}
+
+	@Cron('40 00 * * * *', { name: BATCH_TOP_PRODUCTS })
+	public async batchTopProducts() {
+		try {
+			const updated = await this.batchService.batchTopProducts();
+			this.logger.debug(`EXECUTED! updated: ${updated}`, BATCH_TOP_PRODUCTS);
+		} catch (err) {
+			this.logger.error(err, BATCH_TOP_PRODUCTS);
+		}
+	}
+
+	@Cron('00 01 * * * *', { name: BATCH_TOP_ROOM_TOURS })
+	public async batchTopRoomTours() {
+		try {
+			const updated = await this.batchService.batchTopRoomTours();
+			this.logger.debug(`EXECUTED! updated: ${updated}`, BATCH_TOP_ROOM_TOURS);
+		} catch (err) {
+			this.logger.error(err, BATCH_TOP_ROOM_TOURS);
+		}
+	}
+
+	@Get()
+	getHello(): string {
+		return 'Compass Batch Server';
+	}
+}

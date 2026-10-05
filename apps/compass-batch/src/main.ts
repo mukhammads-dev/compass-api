@@ -1,8 +1,13 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { CompassBatchModule } from './compass-batch.module';
+import { BatchModule } from './batch.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(CompassBatchModule);
-  await app.listen(process.env.PORT_BATCH ?? 3000);
+	const app = await NestFactory.create(BatchModule);
+
+	const port = process.env.PORT_BATCH ?? 3001;
+	await app.listen(port);
+	new Logger('Bootstrap').log(`Compass Batch is running on port ${port}`);
 }
-bootstrap();
+
+void bootstrap();
