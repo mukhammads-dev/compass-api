@@ -54,14 +54,14 @@ GraphQL playground: `http://localhost:<PORT_API>/graphql` (disabled in productio
 
 ```bash
 npm run lint
-npm run test:e2e           # includes the live chat gateway e2e suite
+npm run test:e2e           # live chat gateway suite + app suite (app suite needs MONGO_DEV reachable)
 ```
 
 ## Deploy
 
 ```bash
 npm ci
-npm run build                     # builds both apps into dist/
+npm run build                     # builds compass-api and compass-batch into dist/apps/
 npm run start:prod                # NODE_ENV=production node dist/apps/compass-api/main
 npm run start:prod:batch          # NODE_ENV=production node dist/apps/compass-batch/main
 ```
