@@ -30,7 +30,9 @@ export class LoggingInterceptor implements NestInterceptor {
 		return next.handle();
 	}
 
+	/** Short one-line preview. Password values never reach the log. */
 	private stringify(context: any): string {
-		return JSON.stringify(context)?.slice(0, 75) ?? '';
+		const masked = JSON.stringify(context, (key: string, value: unknown) => (/password/i.test(key) ? '***' : value));
+		return masked?.slice(0, 75) ?? '';
 	}
 }
