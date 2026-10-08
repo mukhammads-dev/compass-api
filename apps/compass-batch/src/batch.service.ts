@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { AnyBulkWriteOperation, Model } from 'mongoose';
+import { existsSync } from 'fs';
+import { readdir, stat, unlink } from 'fs/promises';
+import * as path from 'path';
 import { BoardArticle } from '../../compass-api/src/libs/dto/board-article/board-article';
 import { Member } from '../../compass-api/src/libs/dto/member/member';
 import { Product } from '../../compass-api/src/libs/dto/product/product';
 import { BoardArticleCategory, BoardArticleStatus } from '../../compass-api/src/libs/enums/board-article.enum';
 import { MemberStatus, MemberType } from '../../compass-api/src/libs/enums/member.enum';
 import { ProductStatus } from '../../compass-api/src/libs/enums/product.enum';
-import { ROOM_TOUR_FRESH_DAYS } from './lib/config';
+import { LENS_UPLOAD_DIR } from '../../compass-api/src/libs/config';
+import { LENS_PHOTO_TTL_HOURS, ROOM_TOUR_FRESH_DAYS } from './lib/config';
 
 @Injectable()
 export class BatchService {
@@ -92,5 +96,22 @@ export class BatchService {
 
 		if (operations.length) await this.boardArticleModel.bulkWrite(operations);
 		return operations.length;
+	}
+
+	/** Deletes Compass Lens photos older than LENS_PHOTO_TTL_HOURS. */
+	public async batchLensCleanup(): Promise<number> {
+		if (!existsSync(LENS_UPLOAD_DIR)) return 0;
+		const expiredBefore = Date.now() - LENS_PHOTO_TTL_HOURS * 60 * 60 * 1000;
+
+		let removed = 0;
+		for (const name of await readdir(LENS_UPLOAD_DIR)) {
+			const file = path.join(LENS_UPLOAD_DIR, name);
+			const info = await stat(file);
+			if (info.isFile() && info.mtimeMs < expiredBefore) {
+				await unlink(file);
+				removed++;
+			}
+		}
+		return removed;
 	}
 }

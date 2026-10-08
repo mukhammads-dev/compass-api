@@ -1,11 +1,18 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { Cron, Timeout } from '@nestjs/schedule';
 import { BatchService } from './batch.service';
-import { BATCH_ROLLBACK, BATCH_TOP_AGENTS, BATCH_TOP_PRODUCTS, BATCH_TOP_ROOM_TOURS } from './lib/config';
+import {
+	BATCH_LENS_CLEANUP,
+	BATCH_ROLLBACK,
+	BATCH_TOP_AGENTS,
+	BATCH_TOP_PRODUCTS,
+	BATCH_TOP_ROOM_TOURS,
+} from './lib/config';
 
 /**
  * Scheduling only, the work lives in BatchService. Jobs run hourly and never overlap:
- * rollback (xx:00:00) → agents (xx:00:20) → products (xx:00:40) → room tours (xx:01:00)
+ * rollback (xx:00:00) → agents (xx:00:20) → products (xx:00:40) → room tours (xx:01:00).
+ * Lens photo cleanup runs once a night (03:30).
  */
 @Controller()
 export class BatchController {
@@ -55,6 +62,16 @@ export class BatchController {
 			this.logger.debug(`EXECUTED! updated: ${updated}`, BATCH_TOP_ROOM_TOURS);
 		} catch (err) {
 			this.logger.error(err, BATCH_TOP_ROOM_TOURS);
+		}
+	}
+
+	@Cron('00 30 03 * * *', { name: BATCH_LENS_CLEANUP })
+	public async batchLensCleanup() {
+		try {
+			const removed = await this.batchService.batchLensCleanup();
+			this.logger.debug(`EXECUTED! removed: ${removed}`, BATCH_LENS_CLEANUP);
+		} catch (err) {
+			this.logger.error(err, BATCH_LENS_CLEANUP);
 		}
 	}
 
