@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { ObjectId, T } from './types/common';
+import { LensLabel } from './enums/lens.enum';
+import { ProductType } from './enums/product.enum';
 
 /* ------------------------------------------------------------------ */
 /*  Sort whitelists (used by @IsIn in inquiry DTOs)                    */
@@ -44,6 +46,81 @@ export const CHAT_HISTORY_LIMIT = 30; // messages a new visitor sees on connect
 export const CHAT_MESSAGE_MAX_LENGTH = 500;
 export const CHAT_MIN_INTERVAL_MS = 700; // per connection, simple flood guard
 export const CHAT_HEARTBEAT_MS = 30_000; // ping interval; silent sockets are dropped
+
+/* ------------------------------------------------------------------ */
+/*  Compass Lens (shop a room photo)                                  */
+/* ------------------------------------------------------------------ */
+
+export const LENS_MODEL_DIR = 'models/lens'; // detector.onnx + embedder.onnx, see models/lens/export.py
+export const LENS_UPLOAD_DIR = 'uploads/lens';
+export const LENS_MAX_IMAGE_SIDE = 1600; // px, uploads are downscaled before they are stored
+export const LENS_MIN_SCORE = 0.3; // detector confidence
+export const LENS_MIN_AREA = 0.01; // share of the photo; smaller finds are noise
+export const LENS_MAX_FINDS = 8;
+export const LENS_MATCH_LIMIT = 4; // products per find
+export const LENS_MAX_CONCURRENT = 2; // searches running the models at the same time
+export const LENS_INDEX_TTL_MS = 60_000; // product vectors are re-synced at most once a minute
+
+/** Where each find belongs in the catalog; used when no product has the exact same label. */
+export const LENS_LABEL_TYPE: Record<LensLabel, ProductType> = {
+	[LensLabel.SOFA]: ProductType.FURNITURE,
+	[LensLabel.ARMCHAIR]: ProductType.FURNITURE,
+	[LensLabel.CHAIR]: ProductType.FURNITURE,
+	[LensLabel.DINING_TABLE]: ProductType.FURNITURE,
+	[LensLabel.COFFEE_TABLE]: ProductType.FURNITURE,
+	[LensLabel.SIDE_TABLE]: ProductType.FURNITURE,
+	[LensLabel.DESK]: ProductType.FURNITURE,
+	[LensLabel.BED]: ProductType.FURNITURE,
+	[LensLabel.STOOL]: ProductType.FURNITURE,
+	[LensLabel.BENCH]: ProductType.FURNITURE,
+	[LensLabel.TV_STAND]: ProductType.FURNITURE,
+	[LensLabel.FLOOR_LAMP]: ProductType.LIGHTING,
+	[LensLabel.TABLE_LAMP]: ProductType.LIGHTING,
+	[LensLabel.PENDANT_LAMP]: ProductType.LIGHTING,
+	[LensLabel.RUG]: ProductType.TEXTILE,
+	[LensLabel.CUSHION]: ProductType.TEXTILE,
+	[LensLabel.CURTAIN]: ProductType.TEXTILE,
+	[LensLabel.SHELF]: ProductType.STORAGE,
+	[LensLabel.CABINET]: ProductType.STORAGE,
+	[LensLabel.DRESSER]: ProductType.STORAGE,
+	[LensLabel.MIRROR]: ProductType.DECOR,
+	[LensLabel.VASE]: ProductType.DECOR,
+	[LensLabel.WALL_ART]: ProductType.DECOR,
+	[LensLabel.PLANT]: ProductType.PLANT,
+};
+
+/**
+ * A product's label comes from its title first (sellers name what they sell); the detector is the fallback.
+ * Checked top to bottom, so the specific names come before the general ones ("coffee table" before "table").
+ */
+export const LENS_TITLE_KEYWORDS: [LensLabel, RegExp][] = [
+	[LensLabel.FLOOR_LAMP, /floor lamp|standing lamp|장스탠드|플로어/i],
+	[LensLabel.TABLE_LAMP, /table lamp|desk lamp|bedside lamp|무드등|단스탠드/i],
+	[LensLabel.PENDANT_LAMP, /pendant|ceiling|chandelier|bulb|펜던트|조명/i],
+	[LensLabel.COFFEE_TABLE, /coffee table|tea table|low table|좌식|커피 ?테이블/i],
+	[LensLabel.SIDE_TABLE, /side table|end table|nightstand|bedside table|협탁|사이드 ?테이블/i],
+	[LensLabel.DINING_TABLE, /dining|식탁/i],
+	[LensLabel.TV_STAND, /tv (stand|console|cabinet)|media console|거실장/i],
+	[LensLabel.ARMCHAIR, /armchair|lounge chair|accent chair|recliner|안락의자|라운지/i],
+	[LensLabel.SOFA, /sofa|couch|loveseat|소파/i],
+	[LensLabel.STOOL, /stool|ottoman|pouf|floor cushion|스툴/i],
+	[LensLabel.BENCH, /bench|벤치/i],
+	[LensLabel.CHAIR, /chair|의자|체어/i],
+	[LensLabel.DESK, /desk|workstation|책상/i],
+	[LensLabel.BED, /\bbed\b|bed frame|mattress|duvet|bedding|침대|매트리스|이불/i],
+	[LensLabel.DRESSER, /dresser|chest of drawers|drawer|서랍/i],
+	[LensLabel.SHELF, /shelf|shelves|bookcase|bookshelf|선반|책장/i],
+	[LensLabel.CABINET, /cabinet|sideboard|wardrobe|closet|cupboard|수납장|옷장|장식장/i],
+	[LensLabel.MIRROR, /mirror|거울/i],
+	[LensLabel.RUG, /\brug\b|carpet|mat\b|러그|카펫/i],
+	[LensLabel.CURTAIN, /curtain|drape|blind|커튼|블라인드/i],
+	[LensLabel.CUSHION, /cushion|pillow|throw|쿠션/i],
+	[LensLabel.VASE, /vase|화병|꽃병/i],
+	[LensLabel.PLANT, /plant|monstera|tree|ficus|leaf|식물|화분/i],
+	[LensLabel.WALL_ART, /poster|print|painting|canvas|wall art|frame|액자|포스터/i],
+	[LensLabel.PENDANT_LAMP, /lamp|light|램프/i],
+	[LensLabel.DINING_TABLE, /table|테이블/i],
+];
 
 /* ------------------------------------------------------------------ */
 /*  Upload                                                            */
