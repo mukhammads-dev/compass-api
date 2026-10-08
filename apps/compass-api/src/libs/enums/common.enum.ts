@@ -30,6 +30,8 @@ export enum Message {
 	CHAT_EMPTY_MESSAGE = 'Write something before sending!',
 	CHAT_MESSAGE_TOO_LONG = 'Message is too long!',
 	CHAT_TOO_FAST = 'You are sending messages too fast!',
+
+	LENS_UNAVAILABLE = 'Photo search is not available right now, please try again later!',
 }
 
 export enum Direction {

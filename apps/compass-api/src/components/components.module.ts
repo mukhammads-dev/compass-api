@@ -3,6 +3,7 @@ import { AuthModule } from './auth/auth.module';
 import { BoardArticleModule } from './board-article/board-article.module';
 import { CommentModule } from './comment/comment.module';
 import { FollowModule } from './follow/follow.module';
+import { LensModule } from './lens/lens.module';
 import { LikeModule } from './like/like.module';
 import { MemberModule } from './member/member.module';
 import { MyRoomModule } from './my-room/my-room.module';
@@ -24,6 +25,7 @@ import { ViewModule } from './view/view.module';
 		NotificationModule,
 		NoticeModule,
 		MyRoomModule,
+		LensModule,
 	],
 })
 export class ComponentsModule {}
