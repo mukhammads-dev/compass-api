@@ -11,7 +11,6 @@ import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { Model } from 'mongoose';
-import sharp from 'sharp';
 import type { FileUpload, ObjectId } from '../../libs/types/common';
 import type { LensBox, LensDetection } from '../../libs/types/lens';
 import {
@@ -21,7 +20,6 @@ import {
 	LENS_MATCH_LIMIT,
 	LENS_MAX_CONCURRENT,
 	LENS_MAX_FINDS,
-	LENS_MAX_IMAGE_SIDE,
 	LENS_TITLE_KEYWORDS,
 	LENS_UPLOAD_DIR,
 	lookupAuthMemberLiked,
@@ -74,10 +72,10 @@ export class LensService implements OnModuleInit {
 
 	/** Stores the photo, finds what is in it and the closest products for each find. */
 	public async lensSearch(memberId: ObjectId | null, file: FileUpload): Promise<LensResult> {
+		await this.prepare();
 		const photo = await this.storePhoto(file);
 
 		const pending = await this.withSlot(async () => {
-			await this.prepare();
 			const image = await this.visionService.decode(photo);
 			const detections = (await this.visionService.detect(image)).slice(0, LENS_MAX_FINDS);
 			const vectors = await this.visionService.embed(
@@ -148,18 +146,14 @@ export class LensService implements OnModuleInit {
 	/*  PHOTO                                                             */
 	/* ------------------------------------------------------------------ */
 
-	/** Upright, at most LENS_MAX_IMAGE_SIDE px, re-encoded as JPEG (drops EXIF, including location). */
+	/** Stored re-encoded (see VisionService.normalizePhoto), never as uploaded. */
 	private async storePhoto(file: FileUpload): Promise<string> {
 		if (!file?.filename) throw new BadRequestException(Message.UPLOAD_FAILED);
 		if (!validMimeTypes.includes(file.mimetype)) throw new BadRequestException(Message.PROVIDE_ALLOWED_FORMAT);
 
 		try {
 			const original = await readStream(file.createReadStream());
-			const photo = await sharp(original)
-				.rotate()
-				.resize(LENS_MAX_IMAGE_SIDE, LENS_MAX_IMAGE_SIDE, { fit: 'inside', withoutEnlargement: true })
-				.jpeg({ quality: 85 })
-				.toBuffer();
+			const photo = await this.visionService.normalizePhoto(original);
 
 			await mkdir(LENS_UPLOAD_DIR, { recursive: true });
 			const url = `${LENS_UPLOAD_DIR}/${randomUUID()}.jpg`;

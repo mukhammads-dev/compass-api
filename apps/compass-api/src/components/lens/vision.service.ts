@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import * as ort from 'onnxruntime-node';
-import sharp from 'sharp';
-import { errorMessage, LENS_MIN_AREA, LENS_MIN_SCORE, LENS_MODEL_DIR } from '../../libs/config';
+import type * as Ort from 'onnxruntime-node';
+import type Sharp from 'sharp';
+import { errorMessage, LENS_MAX_IMAGE_SIDE, LENS_MIN_AREA, LENS_MIN_SCORE, LENS_MODEL_DIR } from '../../libs/config';
 import { LensLabel } from '../../libs/enums/lens.enum';
 import type { LensBox, LensDetection } from '../../libs/types/lens';
 
@@ -21,20 +21,27 @@ export interface RawImage {
 }
 
 /**
- * Runs the two Compass Lens models on CPU:
+ * Runs the two Compass Lens models on CPU.
+ * onnxruntime-node and sharp are loaded on first use, not at boot: without them (or without the model files)
+ * the API still starts and only photo search reports itself unavailable.
+ *
  * - detector.onnx: open-vocabulary YOLOE with the LensLabel vocabulary baked in (boxes + labels, NMS inside)
  * - embedder.onnx: image classifier backbone that turns a crop into a unit-length 1280-d vector
  */
 @Injectable()
 export class VisionService implements OnModuleInit {
 	private readonly logger = new Logger(VisionService.name);
-	private detector: ort.InferenceSession | null = null;
-	private embedder: ort.InferenceSession | null = null;
+	private ort: typeof Ort | null = null;
+	private sharp: typeof Sharp | null = null;
+	private detector: Ort.InferenceSession | null = null;
+	private embedder: Ort.InferenceSession | null = null;
 	private loading: Promise<void> | null = null;
 
 	/** Models are loaded in the background so the first search does not pay for it. */
 	public onModuleInit(): void {
-		this.ready().catch((err) => this.logger.warn(`Compass Lens is off: ${errorMessage(err)}`));
+		this.ready().catch((err) =>
+			this.logger.warn(`Compass Lens is off (run npm install, check ${LENS_MODEL_DIR}/): ${errorMessage(err)}`),
+		);
 	}
 
 	public async ready(): Promise<void> {
@@ -54,14 +61,27 @@ export class VisionService implements OnModuleInit {
 		const embedderPath = path.join(dir, 'embedder.onnx');
 		if (!existsSync(detectorPath) || !existsSync(embedderPath)) throw new Error(`models not found in ${dir}`);
 
-		this.detector = await ort.InferenceSession.create(detectorPath);
-		this.embedder = await ort.InferenceSession.create(embedderPath);
+		this.ort = await import('onnxruntime-node');
+		this.sharp = (await import('sharp')).default;
+		this.detector = await this.ort.InferenceSession.create(detectorPath);
+		this.embedder = await this.ort.InferenceSession.create(embedderPath);
 		this.logger.log('Compass Lens models loaded');
+	}
+
+	/** Upright, at most LENS_MAX_IMAGE_SIDE px, re-encoded as JPEG (drops EXIF, including location). */
+	public async normalizePhoto(input: Buffer): Promise<Buffer> {
+		await this.ready();
+		return await this.sharp!(input)
+			.rotate()
+			.resize(LENS_MAX_IMAGE_SIDE, LENS_MAX_IMAGE_SIDE, { fit: 'inside', withoutEnlargement: true })
+			.jpeg({ quality: 85 })
+			.toBuffer();
 	}
 
 	/** EXIF-rotated RGB pixels, decoded once and reused for detection and every crop. */
 	public async decode(input: Buffer | string): Promise<RawImage> {
-		const { data, info } = await sharp(input).rotate().removeAlpha().raw().toBuffer({ resolveWithObject: true });
+		await this.ready();
+		const { data, info } = await this.sharp!(input).rotate().removeAlpha().raw().toBuffer({ resolveWithObject: true });
 		return { data, width: info.width, height: info.height };
 	}
 
@@ -87,7 +107,9 @@ export class VisionService implements OnModuleInit {
 			.raw()
 			.toBuffer();
 
-		const feeds = { images: new ort.Tensor('float32', toChw(pixels, DETECT_SIZE), [1, 3, DETECT_SIZE, DETECT_SIZE]) };
+		const feeds = {
+			images: new this.ort!.Tensor('float32', toChw(pixels, DETECT_SIZE), [1, 3, DETECT_SIZE, DETECT_SIZE]),
+		};
 		const output = (await this.detector!.run(feeds)).output0;
 		const [, rows, stride] = output.dims;
 		const values = output.data as Float32Array;
@@ -126,15 +148,15 @@ export class VisionService implements OnModuleInit {
 			batch.set(toChw(pixels, EMBED_SIZE), i * planeSize);
 		}
 
-		const feeds = { images: new ort.Tensor('float32', batch, [boxes.length, 3, EMBED_SIZE, EMBED_SIZE]) };
+		const feeds = { images: new this.ort!.Tensor('float32', batch, [boxes.length, 3, EMBED_SIZE, EMBED_SIZE]) };
 		const output = (await this.embedder!.run(feeds)).embedding;
 		const [, dims] = output.dims;
 		const values = output.data as Float32Array;
 		return boxes.map((_, i) => values.slice(i * dims, (i + 1) * dims));
 	}
 
-	private pipeline(image: RawImage): sharp.Sharp {
-		return sharp(image.data, { raw: { width: image.width, height: image.height, channels: 3 } });
+	private pipeline(image: RawImage): Sharp.Sharp {
+		return this.sharp!(image.data, { raw: { width: image.width, height: image.height, channels: 3 } });
 	}
 }
 
