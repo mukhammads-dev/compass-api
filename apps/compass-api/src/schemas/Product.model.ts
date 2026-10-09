@@ -30,6 +30,8 @@ const ProductSchema = new Schema(
 		productHeight: { type: Number, required: true },
 
 		productColor: { type: String, required: true },
+		/** units left; USED items are always 1. Reaching 0 marks the product SOLD */
+		productStock: { type: Number, default: 1, min: 0 },
 		productDeliveryFee: { type: Number, default: 0 },
 		productAssembly: { type: Boolean, default: false },
 		productImages: { type: [String], required: true },

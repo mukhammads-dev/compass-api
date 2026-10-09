@@ -63,6 +63,9 @@ export class Product {
 	productColor: string;
 
 	@Field(() => Int)
+	productStock: number;
+
+	@Field(() => Int)
 	productDeliveryFee: number;
 
 	@Field(() => Boolean)

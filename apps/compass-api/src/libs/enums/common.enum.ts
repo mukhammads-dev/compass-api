@@ -31,6 +31,20 @@ export enum Message {
 	CHAT_MESSAGE_TOO_LONG = 'Message is too long!',
 	CHAT_TOO_FAST = 'You are sending messages too fast!',
 
+	CART_LIMIT_REACHED = 'Your cart is full, check out or remove something first!',
+	CART_IS_EMPTY = 'Your cart is empty!',
+	NOT_FOR_DELIVERY = 'Used furniture is reserved and picked up, not delivered!',
+	NOT_FOR_MEETUP = 'Only used furniture can be reserved for pick-up!',
+	OWN_PRODUCT = 'You cannot buy your own product!',
+	OUT_OF_STOCK = 'Sorry, not enough left in stock!',
+	PRODUCT_NOT_AVAILABLE = 'This product is no longer available!',
+	ASSEMBLY_NOT_OFFERED = 'Assembly is not offered for this product!',
+	INVALID_DELIVERY_DATE = 'Please choose an available delivery date!',
+	MISSING_DELIVERY_DATE = 'Please choose a delivery date for every store!',
+	PAYMENT_DECLINED = 'Payment was declined, please try another card!',
+	INVALID_CARD = 'Please check the card number and expiry date!',
+	ORDER_STATUS_LOCKED = 'This order can no longer be changed!',
+
 	LENS_UNAVAILABLE = 'Photo search is not available right now, please try again later!',
 }
 

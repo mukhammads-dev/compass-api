@@ -14,6 +14,7 @@ const NotificationSchema = new Schema(
 		receiverId: { type: Schema.Types.ObjectId, required: true, ref: 'Member' },
 		productId: { type: Schema.Types.ObjectId, ref: 'Product' },
 		articleId: { type: Schema.Types.ObjectId, ref: 'BoardArticle' },
+		orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
 	},
 	{ timestamps: true, collection: 'notifications' },
 );

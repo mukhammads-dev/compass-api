@@ -1,7 +1,7 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { ArrayMaxSize, ArrayMinSize, IsIn, IsNotEmpty, IsOptional, Length, Max, Min } from 'class-validator';
 import type { ObjectId } from '../../types/common';
-import { availableProductSorts, MAX_PAGE_LIMIT } from '../../config';
+import { availableProductSorts, MAX_PAGE_LIMIT, MAX_PRODUCT_STOCK } from '../../config';
 import { Direction } from '../../enums/common.enum';
 import {
 	ProductCondition,
@@ -78,6 +78,13 @@ export class ProductInput {
 	@Length(2, 30)
 	@Field(() => String)
 	productColor: string;
+
+	/** NEW only; USED items are single pieces */
+	@IsOptional()
+	@Min(1)
+	@Max(MAX_PRODUCT_STOCK)
+	@Field(() => Int, { nullable: true })
+	productStock?: number;
 
 	@IsOptional()
 	@Min(0)

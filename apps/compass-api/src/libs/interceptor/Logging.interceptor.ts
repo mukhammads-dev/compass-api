@@ -30,9 +30,11 @@ export class LoggingInterceptor implements NestInterceptor {
 		return next.handle();
 	}
 
-	/** Short one-line preview. Password values never reach the log. */
+	/** Short one-line preview. Passwords and card details never reach the log. */
 	private stringify(context: any): string {
-		const masked = JSON.stringify(context, (key: string, value: unknown) => (/password/i.test(key) ? '***' : value));
+		const masked = JSON.stringify(context, (key: string, value: unknown) =>
+			/password|cardNumber|cardExpiry|cardHolder/i.test(key) ? '***' : value,
+		);
 		return masked?.slice(0, 75) ?? '';
 	}
 }

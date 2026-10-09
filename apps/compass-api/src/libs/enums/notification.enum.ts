@@ -5,6 +5,7 @@ export enum NotificationType {
 	COMMENT = 'COMMENT',
 	FOLLOW = 'FOLLOW',
 	TAG = 'TAG',
+	ORDER = 'ORDER',
 }
 registerEnumType(NotificationType, { name: 'NotificationType' });
 
@@ -18,5 +19,6 @@ export enum NotificationGroup {
 	MEMBER = 'MEMBER',
 	PRODUCT = 'PRODUCT',
 	ARTICLE = 'ARTICLE',
+	ORDER = 'ORDER',
 }
 registerEnumType(NotificationGroup, { name: 'NotificationGroup' });

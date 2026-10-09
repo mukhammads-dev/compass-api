@@ -52,6 +52,8 @@ export class ProductService {
 	public async createProduct(authMember: Member, input: ProductInput): Promise<Product> {
 		await this.checkListingPermission(authMember, input.productCondition);
 		input.memberId = authMember._id;
+		// a used piece is one of a kind
+		if (input.productCondition === ProductCondition.USED) input.productStock = 1;
 
 		try {
 			const result = await this.productModel.create(input);
@@ -89,7 +91,7 @@ export class ProductService {
 	public async getProduct(memberId: ObjectId | null, productId: ObjectId): Promise<Product> {
 		const search: T = {
 			_id: productId,
-			productStatus: { $in: [ProductStatus.ACTIVE, ProductStatus.SOLD] },
+			productStatus: { $in: [ProductStatus.ACTIVE, ProductStatus.RESERVED, ProductStatus.SOLD] },
 		};
 
 		const targetProduct = (await this.productModel.findOne(search).lean().exec()) as Product | null;
@@ -257,6 +259,12 @@ export class ProductService {
 
 		if (productStatus === ProductStatus.SOLD) input.soldAt = new Date();
 		else if (productStatus === ProductStatus.DELETE) input.deletedAt = new Date();
+		// stock only means something for NEW pieces; a used piece always has exactly one
+		if (input.productStock !== undefined) {
+			const current = await this.productModel.findOne(search).select('productCondition').lean().exec();
+			const condition = input.productCondition ?? current?.productCondition;
+			if (condition === ProductCondition.USED) input.productStock = 1;
+		}
 
 		const result = await this.productModel.findOneAndUpdate(search, input, { new: true }).exec();
 		if (!result) throw new NotFoundException(Message.UPDATE_FAILED);
@@ -388,6 +396,104 @@ export class ProductService {
 	/* ------------------------------------------------------------------ */
 	/*  STATS                                                             */
 	/* ------------------------------------------------------------------ */
+
+	/* ------------------------------------------------------------------ */
+	/*  STOCK (used by orders)                                            */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Takes units of a NEW product in one atomic update, so two buyers can never get the last piece.
+	 * The product turns SOLD when its stock reaches 0. Returns null when there is not enough left.
+	 */
+	public async takeStock(productId: ObjectId, quantity: number): Promise<Product | null> {
+		const result = await this.productModel
+			.findOneAndUpdate(
+				{
+					_id: productId,
+					productStatus: ProductStatus.ACTIVE,
+					productCondition: ProductCondition.NEW,
+					productStock: { $gte: quantity },
+				},
+				{ $inc: { productStock: -quantity } },
+				{ new: true },
+			)
+			.lean()
+			.exec();
+		if (!result) return null;
+
+		if (result.productStock === 0) {
+			const soldOut = await this.productModel
+				.updateOne(
+					{ _id: productId, productStatus: ProductStatus.ACTIVE, productStock: 0 },
+					{ productStatus: ProductStatus.SOLD, soldAt: new Date() },
+				)
+				.exec();
+			if (soldOut.modifiedCount) {
+				await this.memberService.memberStatsEditor({ _id: result.memberId, targetKey: 'memberProducts', modifier: -1 });
+			}
+		}
+		return result as Product;
+	}
+
+	/** Gives units back after a cancellation; a product that sold out through orders becomes ACTIVE again. */
+	public async returnStock(productId: ObjectId, quantity: number): Promise<void> {
+		const before = await this.productModel
+			.findOneAndUpdate(
+				{ _id: productId, productStatus: { $in: [ProductStatus.ACTIVE, ProductStatus.SOLD] } },
+				{ $inc: { productStock: quantity } },
+			)
+			.lean()
+			.exec();
+		if (before?.productStatus !== ProductStatus.SOLD || before.productStock !== 0) return;
+
+		await this.productModel
+			.updateOne(
+				{ _id: productId, productStatus: ProductStatus.SOLD },
+				{ productStatus: ProductStatus.ACTIVE, $unset: { soldAt: 1 } },
+			)
+			.exec();
+		await this.memberService.memberStatsEditor({ _id: before.memberId, targetKey: 'memberProducts', modifier: 1 });
+	}
+
+	/** USED piece paid for and waiting for pick-up: hidden from the shop, nobody else can buy it. */
+	public async reserveUsed(productId: ObjectId): Promise<Product | null> {
+		return (await this.productModel
+			.findOneAndUpdate(
+				{ _id: productId, productStatus: ProductStatus.ACTIVE, productCondition: ProductCondition.USED },
+				{ productStatus: ProductStatus.RESERVED },
+				{ new: true },
+			)
+			.lean()
+			.exec()) as Product | null;
+	}
+
+	public async releaseReserved(productId: ObjectId): Promise<void> {
+		await this.productModel
+			.updateOne({ _id: productId, productStatus: ProductStatus.RESERVED }, { productStatus: ProductStatus.ACTIVE })
+			.exec();
+	}
+
+	public async completeReserved(productId: ObjectId): Promise<void> {
+		const result = await this.productModel
+			.findOneAndUpdate(
+				{ _id: productId, productStatus: ProductStatus.RESERVED },
+				{ productStatus: ProductStatus.SOLD, soldAt: new Date() },
+			)
+			.lean()
+			.exec();
+		if (result) {
+			await this.memberService.memberStatsEditor({ _id: result.memberId, targetKey: 'memberProducts', modifier: -1 });
+		}
+	}
+
+	/** Plain product documents by id (no lookups), for cart and checkout. */
+	public async findProductsByIds(ids: ObjectId[]): Promise<Product[]> {
+		if (!ids.length) return [];
+		return (await this.productModel
+			.find({ _id: { $in: ids } })
+			.lean()
+			.exec()) as Product[];
+	}
 
 	public async productStatsEditor(input: StatisticModifier): Promise<Product | null> {
 		const { _id, targetKey, modifier } = input;

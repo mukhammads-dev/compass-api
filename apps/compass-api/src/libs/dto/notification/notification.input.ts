@@ -14,6 +14,7 @@ export interface NotificationInput {
 	receiverId: ObjectId;
 	productId?: ObjectId;
 	articleId?: ObjectId;
+	orderId?: ObjectId;
 }
 
 @InputType()

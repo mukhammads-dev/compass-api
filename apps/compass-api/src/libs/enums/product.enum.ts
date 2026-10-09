@@ -54,6 +54,8 @@ registerEnumType(ProductCondition, { name: 'ProductCondition' });
 
 export enum ProductStatus {
 	ACTIVE = 'ACTIVE',
+	/** USED item paid for and waiting to be picked up */
+	RESERVED = 'RESERVED',
 	SOLD = 'SOLD',
 	DELETE = 'DELETE',
 }
