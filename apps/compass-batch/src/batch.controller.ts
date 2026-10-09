@@ -2,6 +2,7 @@ import { Controller, Get, Logger } from '@nestjs/common';
 import { Cron, Timeout } from '@nestjs/schedule';
 import { BatchService } from './batch.service';
 import {
+	BATCH_COMPLETE_ORDERS,
 	BATCH_LENS_CLEANUP,
 	BATCH_ROLLBACK,
 	BATCH_TOP_AGENTS,
@@ -12,7 +13,7 @@ import {
 /**
  * Scheduling only, the work lives in BatchService. Jobs run hourly and never overlap:
  * rollback (xx:00:00) → agents (xx:00:20) → products (xx:00:40) → room tours (xx:01:00).
- * Lens photo cleanup runs once a night (03:30).
+ * Lens photo cleanup runs once a night (03:30), delivered orders are auto-confirmed at 04:00.
  */
 @Controller()
 export class BatchController {
@@ -72,6 +73,16 @@ export class BatchController {
 			this.logger.debug(`EXECUTED! removed: ${removed}`, BATCH_LENS_CLEANUP);
 		} catch (err) {
 			this.logger.error(err, BATCH_LENS_CLEANUP);
+		}
+	}
+
+	@Cron('00 00 04 * * *', { name: BATCH_COMPLETE_ORDERS })
+	public async batchCompleteOrders() {
+		try {
+			const completed = await this.batchService.batchCompleteOrders();
+			this.logger.debug(`EXECUTED! completed: ${completed}`, BATCH_COMPLETE_ORDERS);
+		} catch (err) {
+			this.logger.error(err, BATCH_COMPLETE_ORDERS);
 		}
 	}
 

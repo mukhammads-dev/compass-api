@@ -10,7 +10,9 @@ import { Product } from '../../compass-api/src/libs/dto/product/product';
 import { BoardArticleCategory, BoardArticleStatus } from '../../compass-api/src/libs/enums/board-article.enum';
 import { MemberStatus, MemberType } from '../../compass-api/src/libs/enums/member.enum';
 import { ProductStatus } from '../../compass-api/src/libs/enums/product.enum';
-import { LENS_UPLOAD_DIR } from '../../compass-api/src/libs/config';
+import { AUTO_COMPLETE_DAYS, LENS_UPLOAD_DIR } from '../../compass-api/src/libs/config';
+import { Order } from '../../compass-api/src/libs/dto/order/order';
+import { OrderActor, OrderStatus } from '../../compass-api/src/libs/enums/order.enum';
 import { LENS_PHOTO_TTL_HOURS, ROOM_TOUR_FRESH_DAYS } from './lib/config';
 
 @Injectable()
@@ -19,6 +21,7 @@ export class BatchService {
 		@InjectModel('Member') private readonly memberModel: Model<Member>,
 		@InjectModel('Product') private readonly productModel: Model<Product>,
 		@InjectModel('BoardArticle') private readonly boardArticleModel: Model<BoardArticle>,
+		@InjectModel('Order') private readonly orderModel: Model<Order>,
 	) {}
 
 	/** Step 1: flag every rankable document by resetting its rank to 0. */
@@ -113,5 +116,28 @@ export class BatchService {
 			}
 		}
 		return removed;
+	}
+
+	/** Delivered orders the buyer never confirmed are confirmed after AUTO_COMPLETE_DAYS (구매확정). */
+	public async batchCompleteOrders(): Promise<number> {
+		const now = new Date();
+		const deliveredBefore = new Date(now.getTime() - AUTO_COMPLETE_DAYS * 24 * 60 * 60 * 1000);
+		const result = await this.orderModel
+			.updateMany(
+				{ orderStatus: OrderStatus.DELIVERED, updatedAt: { $lt: deliveredBefore } },
+				{
+					$set: { orderStatus: OrderStatus.COMPLETED },
+					$push: {
+						history: {
+							status: OrderStatus.COMPLETED,
+							actor: OrderActor.SYSTEM,
+							note: 'Confirmed automatically',
+							at: now,
+						},
+					},
+				},
+			)
+			.exec();
+		return result.modifiedCount;
 	}
 }

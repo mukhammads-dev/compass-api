@@ -3,6 +3,7 @@ export const BATCH_TOP_AGENTS = 'BATCH_TOP_AGENTS';
 export const BATCH_TOP_PRODUCTS = 'BATCH_TOP_PRODUCTS';
 export const BATCH_TOP_ROOM_TOURS = 'BATCH_TOP_ROOM_TOURS';
 export const BATCH_LENS_CLEANUP = 'BATCH_LENS_CLEANUP';
+export const BATCH_COMPLETE_ORDERS = 'BATCH_COMPLETE_ORDERS';
 
 /** Room Tours newer than this get a freshness boost in the weekly ranking. */
 export const ROOM_TOUR_FRESH_DAYS = 7;
