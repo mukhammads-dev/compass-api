@@ -91,6 +91,10 @@ export class Member {
 	/** from aggregation */
 	@Field(() => [MeFollowed], { nullable: true })
 	meFollowed?: MeFollowed[];
+
+	/** Up to 3 photos of the store's newest active products: the "shop window" on store cards. */
+	@Field(() => [String], { nullable: true })
+	storeWindow?: string[];
 }
 
 @ObjectType()

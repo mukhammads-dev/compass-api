@@ -316,28 +316,40 @@ export class BoardArticleService {
 
 	public async likeTargetBoardArticle(memberId: ObjectId, likeRefId: ObjectId): Promise<BoardArticle> {
 		const target = await this.boardArticleModel
-			.findOne({ _id: likeRefId, articleStatus: BoardArticleStatus.ACTIVE })
+			.findOne({ _id: likeRefId, articleStatus: BoardArticleStatus.ACTIVE }, { articleTitle: 1, memberId: 1 })
+			.lean()
 			.exec();
 		if (!target) throw new NotFoundException(Message.NO_DATA_FOUND);
 
 		const modifier = await this.likeService.toggleLike({ memberId, likeRefId, likeGroup: LikeGroup.ARTICLE });
-		const result = await this.boardArticleStatsEditor({ _id: likeRefId, targetKey: 'articleLikes', modifier });
+		const result = await this.boardArticleModel
+			.findByIdAndUpdate(likeRefId, { $inc: { articleLikes: modifier } }, { new: true })
+			.lean()
+			.exec();
 		if (!result) throw new BadRequestException(Message.SOMETHING_WENT_WRONG);
 
+		/* author points and the notification run after the reply */
+		const background: Promise<unknown>[] = [];
 		if (modifier !== 0) {
-			await this.memberService.memberStatsEditor({ _id: target.memberId, targetKey: 'memberPoints', modifier });
+			background.push(
+				this.memberService.memberStatsEditor({ _id: target.memberId, targetKey: 'memberPoints', modifier }),
+			);
 		}
 		if (modifier === 1) {
-			await this.notificationService.createNotification({
-				notificationType: NotificationType.LIKE,
-				notificationGroup: NotificationGroup.ARTICLE,
-				notificationTitle: `Someone liked "${target.articleTitle}"`,
-				authorId: memberId,
-				receiverId: target.memberId,
-				articleId: likeRefId,
-			});
+			background.push(
+				this.notificationService.createNotification({
+					notificationType: NotificationType.LIKE,
+					notificationGroup: NotificationGroup.ARTICLE,
+					notificationTitle: `Someone liked "${target.articleTitle}"`,
+					authorId: memberId,
+					receiverId: target.memberId,
+					articleId: likeRefId,
+				}),
+			);
 		}
-		return result;
+		Promise.all(background).catch((err: Error) => this.logger.error(`like side effects: ${err.message}`));
+
+		return { ...result, meLiked: this.likeService.likedState(memberId, likeRefId, modifier) } as BoardArticle;
 	}
 
 	/* ------------------------------------------------------------------ */

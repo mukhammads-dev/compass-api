@@ -37,6 +37,11 @@ export class LikeService {
 		}
 	}
 
+	/** What the liker sees after a toggle, so the client can update without refetching the list. */
+	public likedState(memberId: ObjectId, likeRefId: ObjectId, modifier: number): MeLiked[] {
+		return modifier === -1 ? [] : [{ memberId, likeRefId, myFavorite: true }];
+	}
+
 	public async checkLikeExistence(input: LikeInput): Promise<MeLiked[]> {
 		const { memberId, likeRefId } = input;
 		const result = await this.likeModel.findOne({ memberId, likeRefId }).exec();

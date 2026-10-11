@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import type { ObjectId } from '../../libs/types/common';
 import { errorMessage, escapeRegex, lookupAuthMemberFollowed, lookupAuthMemberLiked } from '../../libs/config';
 import { MeFollowed } from '../../libs/dto/follow/follow';
@@ -9,6 +9,7 @@ import { AgentsInquiry, LoginInput, MemberInput, MembersInquiry } from '../../li
 import { MemberUpdate, MemberUpdateByAdmin } from '../../libs/dto/member/member.update';
 import { Direction, Message } from '../../libs/enums/common.enum';
 import { LikeGroup } from '../../libs/enums/like.enum';
+import { ProductStatus } from '../../libs/enums/product.enum';
 import { MemberStatus, MemberType } from '../../libs/enums/member.enum';
 import { NotificationGroup, NotificationType } from '../../libs/enums/notification.enum';
 import { ViewGroup } from '../../libs/enums/view.enum';
@@ -17,6 +18,23 @@ import { AuthService } from '../auth/auth.service';
 import { LikeService } from '../like/like.service';
 import { NotificationService } from '../notification/notification.service';
 import { ViewService } from '../view/view.service';
+
+/** The store's three newest active products, first photo only: the "shop window" of a store card. */
+const lookupStoreWindow: PipelineStage.Lookup = {
+	$lookup: {
+		from: 'products',
+		let: { storeId: '$_id' },
+		pipeline: [
+			{ $match: { $expr: { $eq: ['$memberId', '$$storeId'] }, productStatus: ProductStatus.ACTIVE } },
+			{ $sort: { createdAt: -1 } },
+			{ $limit: 3 },
+			{ $project: { _id: 0, image: { $first: '$productImages' } } },
+		],
+		as: 'storeWindow',
+	},
+};
+
+const addStoreWindow: PipelineStage.AddFields = { $addFields: { storeWindow: '$storeWindow.image' } };
 
 @Injectable()
 export class MemberService {
@@ -147,6 +165,8 @@ export class MemberService {
 							{ $limit: input.limit },
 							lookupAuthMemberLiked(memberId),
 							lookupAuthMemberFollowed({ followerId: memberId, followingId: '$_id' }),
+							lookupStoreWindow,
+							addStoreWindow,
 						],
 						metaCounter: [{ $count: 'total' }],
 					},
@@ -158,23 +178,32 @@ export class MemberService {
 	}
 
 	public async likeTargetMember(memberId: ObjectId, likeRefId: ObjectId): Promise<Member> {
-		const target = await this.memberModel.findOne({ _id: likeRefId, memberStatus: MemberStatus.ACTIVE }).exec();
+		const target = await this.memberModel.exists({ _id: likeRefId, memberStatus: MemberStatus.ACTIVE }).exec();
 		if (!target) throw new NotFoundException(Message.NO_DATA_FOUND);
 
 		const modifier = await this.likeService.toggleLike({ memberId, likeRefId, likeGroup: LikeGroup.MEMBER });
-		const result = await this.memberStatsEditor({ _id: likeRefId, targetKey: 'memberLikes', modifier });
+		const result = await this.memberModel
+			.findByIdAndUpdate(
+				likeRefId,
+				{ $inc: { memberLikes: modifier } },
+				{ new: true, projection: { memberPassword: 0 } },
+			)
+			.lean()
+			.exec();
 		if (!result) throw new BadRequestException(Message.SOMETHING_WENT_WRONG);
 
 		if (modifier === 1) {
-			await this.notificationService.createNotification({
-				notificationType: NotificationType.LIKE,
-				notificationGroup: NotificationGroup.MEMBER,
-				notificationTitle: 'Someone liked your profile',
-				authorId: memberId,
-				receiverId: likeRefId,
-			});
+			this.notificationService
+				.createNotification({
+					notificationType: NotificationType.LIKE,
+					notificationGroup: NotificationGroup.MEMBER,
+					notificationTitle: 'Someone liked your profile',
+					authorId: memberId,
+					receiverId: likeRefId,
+				})
+				.catch((err: Error) => this.logger.error(`like notification: ${err.message}`));
 		}
-		return result;
+		return { ...result, meLiked: this.likeService.likedState(memberId, likeRefId, modifier) } as Member;
 	}
 
 	/* ------------------------------------------------------------------ */

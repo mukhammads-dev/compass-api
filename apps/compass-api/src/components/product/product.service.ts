@@ -280,24 +280,33 @@ export class ProductService {
 	/* ------------------------------------------------------------------ */
 
 	public async likeTargetProduct(memberId: ObjectId, likeRefId: ObjectId): Promise<Product> {
-		const target = await this.productModel.findOne({ _id: likeRefId, productStatus: ProductStatus.ACTIVE }).exec();
+		const target = await this.productModel
+			.findOne({ _id: likeRefId, productStatus: ProductStatus.ACTIVE }, { productTitle: 1, memberId: 1 })
+			.lean()
+			.exec();
 		if (!target) throw new NotFoundException(Message.NO_DATA_FOUND);
 
 		const modifier = await this.likeService.toggleLike({ memberId, likeRefId, likeGroup: LikeGroup.PRODUCT });
-		const result = await this.productStatsEditor({ _id: likeRefId, targetKey: 'productLikes', modifier });
+		const result = await this.productModel
+			.findByIdAndUpdate(likeRefId, { $inc: { productLikes: modifier } }, { new: true })
+			.lean()
+			.exec();
 		if (!result) throw new BadRequestException(Message.SOMETHING_WENT_WRONG);
 
+		/* the liker does not wait for the seller's notification */
 		if (modifier === 1) {
-			await this.notificationService.createNotification({
-				notificationType: NotificationType.LIKE,
-				notificationGroup: NotificationGroup.PRODUCT,
-				notificationTitle: `Someone liked "${target.productTitle}"`,
-				authorId: memberId,
-				receiverId: target.memberId,
-				productId: likeRefId,
-			});
+			this.notificationService
+				.createNotification({
+					notificationType: NotificationType.LIKE,
+					notificationGroup: NotificationGroup.PRODUCT,
+					notificationTitle: `Someone liked "${target.productTitle}"`,
+					authorId: memberId,
+					receiverId: target.memberId,
+					productId: likeRefId,
+				})
+				.catch((err: Error) => this.logger.error(`like notification: ${err.message}`));
 		}
-		return result;
+		return { ...result, meLiked: this.likeService.likedState(memberId, likeRefId, modifier) } as Product;
 	}
 
 	/* ------------------------------------------------------------------ */

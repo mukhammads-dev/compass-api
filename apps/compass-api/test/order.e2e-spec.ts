@@ -128,7 +128,7 @@ describe('Orders (e2e)', () => {
 
 	let store: string, buyer: string, rival: string, neighbour: string;
 	let storeId: string;
-	let sofa: { _id: string };
+	let sofa: { _id: string; productStock: number; productStatus: string };
 
 	beforeAll(async () => {
 		process.env.MONGO_DEV = MONGO;
