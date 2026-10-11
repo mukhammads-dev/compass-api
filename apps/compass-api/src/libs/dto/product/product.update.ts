@@ -1,6 +1,6 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { ArrayMaxSize, ArrayMinSize, IsNotEmpty, IsOptional, Length, Max, Min } from 'class-validator';
-import { MAX_PRODUCT_STOCK } from '../../config';
+import { MAX_PRODUCT_STOCK, MIN_PRODUCT_PRICE } from '../../config';
 import type { ObjectId } from '../../types/common';
 import {
 	ProductCondition,
@@ -57,12 +57,12 @@ export class ProductUpdate {
 	productTitle?: string;
 
 	@IsOptional()
-	@Min(0)
+	@Min(MIN_PRODUCT_PRICE)
 	@Field(() => Int, { nullable: true })
 	productPrice?: number;
 
 	@IsOptional()
-	@Min(0)
+	@Min(MIN_PRODUCT_PRICE)
 	@Field(() => Int, { nullable: true })
 	productSalePrice?: number;
 

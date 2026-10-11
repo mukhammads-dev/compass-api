@@ -129,6 +129,8 @@ export const LENS_TITLE_KEYWORDS: [LensLabel, RegExp][] = [
 export const MAX_CART_ITEMS = 30;
 export const MAX_ITEM_QUANTITY = 10;
 export const MAX_PRODUCT_STOCK = 999;
+/** Whole won; anything under ₩1,000 means the zeros were left off. */
+export const MIN_PRODUCT_PRICE = 1_000;
 export const ASSEMBLY_FEE = 30_000; // KRW per unit, installer assembles on delivery day
 export const STAIRS_FREE_FLOORS = 2; // carrying up to the 2nd floor without a lift is free
 export const STAIRS_FEE_PER_FLOOR = 10_000; // KRW per floor above that, per delivery
