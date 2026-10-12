@@ -62,7 +62,8 @@ export class Product {
 	@Field(() => String)
 	productColor: string;
 
-	@Field(() => Int)
+	/** nullable on the wire as a safety net; ProductService fills missing values with 1 on start */
+	@Field(() => Int, { nullable: true })
 	productStock: number;
 
 	@Field(() => Int)

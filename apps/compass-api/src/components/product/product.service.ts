@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+	BadRequestException,
+	ForbiddenException,
+	Injectable,
+	Logger,
+	NotFoundException,
+	OnModuleInit,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { ObjectId } from '../../libs/types/common';
@@ -34,7 +41,7 @@ import { NotificationService } from '../notification/notification.service';
 import { ViewService } from '../view/view.service';
 
 @Injectable()
-export class ProductService {
+export class ProductService implements OnModuleInit {
 	private readonly logger = new Logger(ProductService.name);
 
 	constructor(
@@ -44,6 +51,21 @@ export class ProductService {
 		private readonly likeService: LikeService,
 		private readonly notificationService: NotificationService,
 	) {}
+
+	/**
+	 * Products listed before stock existed have no productStock in the database.
+	 * List queries read raw documents (no schema defaults), so fill the gap once: one piece each.
+	 */
+	public async onModuleInit(): Promise<void> {
+		try {
+			const result = await this.productModel
+				.updateMany({ productStock: { $exists: false } }, { $set: { productStock: 1 } })
+				.exec();
+			if (result.modifiedCount) this.logger.log(`productStock set to 1 on ${result.modifiedCount} older product(s)`);
+		} catch (err) {
+			this.logger.error(`productStock backfill: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
 
 	/* ------------------------------------------------------------------ */
 	/*  CREATE                                                            */
