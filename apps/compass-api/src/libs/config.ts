@@ -53,7 +53,7 @@ export const CHAT_HEARTBEAT_MS = 30_000; // ping interval; silent sockets are dr
 
 export const LENS_MODEL_DIR = 'models/lens'; // detector.onnx + embedder.onnx, see models/lens/export.py
 /** photos people search with (Compass Lens); temporary, the batch deletes them after a day */
-export const LENS_UPLOAD_DIR = 'uploads/photo-search';
+export const LENS_UPLOAD_DIR = 'uploads/lens';
 export const LENS_MAX_IMAGE_SIDE = 1600; // px, uploads are downscaled before they are stored
 export const LENS_MIN_SCORE = 0.3; // detector confidence
 export const LENS_MIN_AREA = 0.01; // share of the photo; smaller finds are noise
@@ -151,10 +151,11 @@ export const validMimeTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/we
  * uploads/<target>:
  *   member     → profile photos
  *   product    → product photos
- *   community  → photos in community posts and room tours
+ *   article    → photos in community posts and room tours
  *   my-room    → room photos people save in "Will it fit?"
+ *   (lens/ is written by Compass Lens itself, see LENS_UPLOAD_DIR)
  */
-export const allowedUploadTargets = ['member', 'product', 'community', 'my-room'];
+export const allowedUploadTargets = ['member', 'product', 'article', 'my-room'];
 
 export const getSerialForImage = (filename: string): string => {
 	const ext = path.parse(filename).ext;
