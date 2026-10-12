@@ -53,7 +53,7 @@ photo ──► detector.onnx ──► boxes + labels (sofa, rug, floor lamp �
 
 - A product's vector is made from its first image, cropped to the main object; its label comes from the title, or
   from the detector when the title does not say. New products and changed first images are picked up within a minute.
-- `lensSearch(file)` stores the photo (re-encoded, EXIF removed) in `uploads/lens/`, `lensRegion(input)` searches a
+- `lensSearch(file)` stores the photo (re-encoded, EXIF removed) in `uploads/photo-search/`, `lensRegion(input)` searches a
   spot the member tapped on it. The batch app deletes these photos after 24 hours.
 - At most 2 searches run the models at once; a search takes ~0.3 s on a laptop CPU.
 
@@ -96,6 +96,9 @@ npm run start:prod:batch          # NODE_ENV=production node dist/apps/compass-b
 
 - Run each app under a process manager (e.g. `pm2 start npm --name compass-api -- run start:prod`).
 - `uploads/` holds user images on disk: keep it on a persistent volume and back it up.
+  - `member/` profile photos · `product/` product photos · `community/` photos in community posts and room tours
+  - `my-room/` saved room photos · `photo-search/` photo-search uploads (temporary, the batch deletes them after a day)
+  - Older installs used `article/` and `lens/`: run `npm run uploads:rename -- --apply` once on each machine.
 - Deploy `models/lens/` next to `dist/` (the API reads it relative to the working directory). Without it the API
   still runs and photo search answers "not available".
 - Behind a reverse proxy, forward WebSocket upgrades on the API port (the chat uses the same port as GraphQL).
