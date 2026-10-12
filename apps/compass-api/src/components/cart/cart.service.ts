@@ -26,7 +26,8 @@ export interface CartLine {
 	seller: Member;
 }
 
-const SELLER_FIELDS = 'memberNick memberImage memberType memberStatus';
+/** every Member field the client asks for on a cart seller (non-null fields must be loaded) */
+const SELLER_FIELDS = 'memberNick memberImage memberType memberStatus memberFollowers memberProducts';
 
 /**
  * The cart holds NEW furniture only (USED pieces are reserved for pick-up instead).
